@@ -719,26 +719,81 @@ function confirmAndClean(items, selectedSet) {
   const toClean = Array.from(selectedSet).map(i => items[i]);
   const totalSize = toClean.reduce((s, i) => s + (i.size || 0), 0);
 
+  let typed = '';
+  const showItems = toClean.slice(0, 8);
+  const moreCount = toClean.length - showItems.length;
+  const boxH = showItems.length + (moreCount > 0 ? 1 : 0) + 12;
+
   const box = blessed.box({
     parent: screen, top: 'center', left: 'center',
-    width: 58, height: Math.min(toClean.length + 9, screen.height - 4),
+    width: 58, height: Math.min(boxH, screen.height - 2),
     tags: true, border: { type: 'line', fg: C.red },
     style: { fg: C.fg, bg: C.panel }, padding: 1,
-    content: [
+    content: '',
+  });
+
+  function renderConfirm() {
+    const target = 'CLEAN';
+    let typedDisplay = '';
+    for (let i = 0; i < target.length; i++) {
+      if (i < typed.length) typedDisplay += fg(C.green, b(typed[i]));
+      else if (i === typed.length) typedDisplay += fg('#ffffff', b('_'));
+      else typedDisplay += fg(C.dim, target[i]);
+    }
+
+    const lines = [
       ctr(b(fg(C.red, '! Confirm Cleanup'))),
       '',
-      ...toClean.map(i => '  * ' + i.name.padEnd(28) + fg(C.yellow, fmt(i.size || 0).padStart(10))),
+      ...showItems.map(i => '  * ' + i.name.padEnd(28) + fg(C.yellow, fmt(i.size || 0).padStart(10))),
+    ];
+    if (moreCount > 0) lines.push('  ' + dim('... and ' + moreCount + ' more'));
+    lines.push(
       '',
       ctr(b('~' + fmt(totalSize) + ' will be freed')),
       '',
-      ctr(dim(b('y') + ' confirm  |  ' + b('n') + ' cancel')),
-    ].join('\n'),
-  });
+      ctr('Type ' + b(fg(C.green, 'CLEAN')) + ' to confirm:'),
+      '',
+      ctr('>>  [ ' + typedDisplay + ' ]  <<'),
+      '',
+      ctr(dim('esc = cancel   backspace = undo')),
+    );
 
+    box.setContent(lines.join('\n'));
+    screen.render();
+  }
+
+  renderConfirm();
   popupOpen = true;
-  box.focus(); screen.render();
-  box.onceKey(['y', 'Y'], () => { popupOpen = false; box.detach(); executeClean(toClean); });
-  box.onceKey(['n', 'N', 'escape'], () => { popupOpen = false; box.detach(); screen.render(); });
+  box.focus();
+
+  box.on('keypress', (ch, key) => {
+    if (key.name === 'escape') {
+      popupOpen = false; box.detach(); screen.render();
+      return;
+    }
+    if (key.name === 'backspace') {
+      typed = typed.slice(0, -1);
+      renderConfirm();
+      return;
+    }
+
+    const target = 'CLEAN';
+    if (ch && ch.length === 1 && typed.length < target.length) {
+      const upper = ch.toUpperCase();
+      if (upper === target[typed.length]) {
+        typed += upper;
+        renderConfirm();
+
+        if (typed === target) {
+          popupOpen = false; box.detach();
+          executeClean(toClean);
+        }
+      } else {
+        typed = '';
+        renderConfirm();
+      }
+    }
+  });
 }
 
 function executeClean(toClean) {
