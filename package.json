@@ -1,0 +1,35 @@
+{
+  "name": "clean-this-shit",
+  "version": "1.0.0",
+  "description": "Ultimate Mac disk space cleaner with TUI",
+  "main": "cleaner.js",
+  "bin": {
+    "clean-this-shit": "./cleaner.js"
+  },
+  "scripts": {
+    "start": "node cleaner.js",
+    "auto": "node cleaner.js --auto"
+  },
+  "keywords": [
+    "mac",
+    "disk",
+    "cleaner",
+    "tui",
+    "storage",
+    "macos",
+    "cleanup"
+  ],
+  "author": "andycufari",
+  "license": "MIT",
+  "type": "commonjs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andycufari/clean-this-shit.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "blessed": "^0.1.81"
+  }
+}
