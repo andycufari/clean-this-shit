@@ -535,6 +535,7 @@ function showAutoClean() {
 
         function nextClean() {
           if (ci >= toClean.length) {
+            run('sync');
             const diskAfter = getDisk();
             const actual = diskAfter.avail - diskBefore.avail;
             addCleanLog('');
@@ -738,6 +739,7 @@ function executeClean(toClean) {
 
   function next() {
     if (idx >= toClean.length) {
+      run('sync');
       const diskAfter = getDisk();
       const actual = diskAfter.avail - diskBefore.avail;
       addLog('');
@@ -1197,6 +1199,8 @@ function confirmDeleteFiles(files, selectedSet) {
               deleted++;
             } catch { errors++; }
           }
+          // Flush filesystem so diskutil reports updated free space
+          run('sync');
 
           const resultBox = blessed.box({
             parent: screen, top: 'center', left: 'center', width: 50, height: 5,
