@@ -1111,17 +1111,22 @@ function confirmDeleteFiles(files, selectedSet) {
   // Track typed characters for "DELETE" confirmation
   let typed = '';
 
+  // Show max 5 files in the dialog
+  const showFiles = toDelete.slice(0, 5);
+  const moreCount = toDelete.length - showFiles.length;
+  const boxHeight = showFiles.length + (moreCount > 0 ? 1 : 0) + 14;
+
   const box = blessed.box({
     parent: screen, top: 'center', left: 'center',
-    width: 60, height: Math.min(toDelete.length + 10, screen.height - 4),
+    width: 60, height: Math.min(boxHeight, screen.height - 2),
     tags: true, border: { type: 'line', fg: C.red },
     style: { fg: C.fg, bg: C.panel }, padding: 1,
-    scrollable: true,
     content: '',
   });
 
   function renderBox() {
     const target = 'DELETE';
+    // Build the visual typing indicator
     let typedDisplay = '';
     for (let i = 0; i < target.length; i++) {
       if (i < typed.length) {
@@ -1129,22 +1134,30 @@ function confirmDeleteFiles(files, selectedSet) {
       } else if (i === typed.length) {
         typedDisplay += fg('#ffffff', b('_'));
       } else {
-        typedDisplay += dim(target[i]);
+        typedDisplay += fg(C.dim, target[i]);
       }
     }
 
-    box.setContent([
+    const lines = [
       ctr(b(fg(C.red, '! DELETE ' + toDelete.length + ' FILES'))),
       '',
-      ...toDelete.slice(0, 15).map(f => '  ' + fg(C.yellow, fmt(f.size).padStart(10)) + '  ' + f.name),
-      toDelete.length > 15 ? '  ' + dim('... and ' + (toDelete.length - 15) + ' more') : '',
+      ...showFiles.map(f => '  ' + fg(C.yellow, fmt(f.size).padStart(10)) + '  ' + f.name),
+    ];
+    if (moreCount > 0) lines.push('  ' + dim('... and ' + moreCount + ' more'));
+    lines.push(
       '',
-      ctr(b(fg(C.red, '~' + fmt(totalSize) + ' will be permanently deleted'))),
+      ctr(fg(C.red, b('~' + fmt(totalSize))) + ' will be ' + fg(C.red, b('permanently deleted'))),
       '',
-      ctr('Type ' + b(fg(C.red, 'DELETE')) + ' to confirm:  [ ' + typedDisplay + ' ]'),
+      ctr(fg(C.border, '- - - - - - - - - - - - - - -')),
       '',
-      ctr(dim('esc to cancel')),
-    ].join('\n'));
+      ctr('Type the word DELETE to confirm:'),
+      '',
+      ctr('>>  [ ' + typedDisplay + ' ]  <<'),
+      '',
+      ctr(dim('esc = cancel   backspace = undo')),
+    );
+
+    box.setContent(lines.join('\n'));
     screen.render();
   }
 
