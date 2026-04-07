@@ -1,6 +1,6 @@
 {
   "name": "clean-this-shit",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Ultimate Mac disk space cleaner with TUI",
   "main": "cleaner.js",
   "bin": {
