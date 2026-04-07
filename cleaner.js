@@ -1108,13 +1108,32 @@ function confirmDeleteFiles(files, selectedSet) {
   const toDelete = Array.from(selectedSet).map(i => files[i]);
   const totalSize = toDelete.reduce((s, f) => s + f.size, 0);
 
+  // Track typed characters for "DELETE" confirmation
+  let typed = '';
+
   const box = blessed.box({
     parent: screen, top: 'center', left: 'center',
     width: 60, height: Math.min(toDelete.length + 10, screen.height - 4),
     tags: true, border: { type: 'line', fg: C.red },
     style: { fg: C.fg, bg: C.panel }, padding: 1,
     scrollable: true,
-    content: [
+    content: '',
+  });
+
+  function renderBox() {
+    const target = 'DELETE';
+    let typedDisplay = '';
+    for (let i = 0; i < target.length; i++) {
+      if (i < typed.length) {
+        typedDisplay += fg(C.green, b(typed[i]));
+      } else if (i === typed.length) {
+        typedDisplay += fg('#ffffff', b('_'));
+      } else {
+        typedDisplay += dim(target[i]);
+      }
+    }
+
+    box.setContent([
       ctr(b(fg(C.red, '! DELETE ' + toDelete.length + ' FILES'))),
       '',
       ...toDelete.slice(0, 15).map(f => '  ' + fg(C.yellow, fmt(f.size).padStart(10)) + '  ' + f.name),
@@ -1122,61 +1141,70 @@ function confirmDeleteFiles(files, selectedSet) {
       '',
       ctr(b(fg(C.red, '~' + fmt(totalSize) + ' will be permanently deleted'))),
       '',
-      ctr('Type ' + b(fg(C.red, 'DELETE')) + ' to confirm, ' + b('esc') + ' to cancel'),
-    ].join('\n'),
-  });
-
-  // Text input for "DELETE" confirmation
-  const input = blessed.textbox({
-    parent: box,
-    bottom: 0, left: 'center', width: 20, height: 1,
-    style: { fg: '#ffffff', bg: C.sel },
-    inputOnFocus: true,
-  });
-
-  input.on('submit', (value) => {
-    if (value.trim() === 'DELETE') {
-      popupOpen = false; box.detach();
-      // Execute deletion
-      let freed = 0;
-      let deleted = 0;
-      let errors = 0;
-      for (const f of toDelete) {
-        try {
-          fs.unlinkSync(f.path);
-          freed += f.size;
-          deleted++;
-        } catch { errors++; }
-      }
-
-      const resultBox = blessed.box({
-        parent: screen, top: 'center', left: 'center', width: 50, height: 5,
-        tags: true, border: { type: 'line', fg: C.green },
-        style: { fg: C.fg, bg: C.panel }, padding: 1,
-        content: [
-          ctr(fg(C.green, b('Deleted ' + deleted + ' files'))),
-          ctr(fg(C.green, fmt(freed) + ' freed')),
-          errors > 0 ? ctr(fg(C.yellow, errors + ' files could not be deleted')) : '',
-        ].join('\n'),
-      });
-      screen.render();
-      setTimeout(() => { resultBox.detach(); showLargeFiles(); }, 2000);
-    } else if (value.trim() !== '') {
-      input.clearValue();
-      input.focus();
-      screen.render();
-    }
-  });
-
-  input.on('cancel', () => {
-    popupOpen = false; box.detach();
+      ctr('Type ' + b(fg(C.red, 'DELETE')) + ' to confirm:  [ ' + typedDisplay + ' ]'),
+      '',
+      ctr(dim('esc to cancel')),
+    ].join('\n'));
     screen.render();
-  });
+  }
+
+  renderBox();
 
   popupOpen = true;
   box.focus();
-  input.focus();
-  screen.render();
+
+  box.on('keypress', (ch, key) => {
+    if (key.name === 'escape') {
+      popupOpen = false; box.detach(); screen.render();
+      return;
+    }
+    if (key.name === 'backspace') {
+      typed = typed.slice(0, -1);
+      renderBox();
+      return;
+    }
+
+    const target = 'DELETE';
+    if (ch && ch.length === 1 && typed.length < target.length) {
+      const upper = ch.toUpperCase();
+      if (upper === target[typed.length]) {
+        typed += upper;
+        renderBox();
+
+        if (typed === target) {
+          popupOpen = false; box.detach();
+          // Execute deletion
+          let freed = 0;
+          let deleted = 0;
+          let errors = 0;
+          for (const f of toDelete) {
+            try {
+              fs.unlinkSync(f.path);
+              freed += f.size;
+              deleted++;
+            } catch { errors++; }
+          }
+
+          const resultBox = blessed.box({
+            parent: screen, top: 'center', left: 'center', width: 50, height: 5,
+            tags: true, border: { type: 'line', fg: C.green },
+            style: { fg: C.fg, bg: C.panel }, padding: 1,
+            content: [
+              ctr(fg(C.green, b('Deleted ' + deleted + ' files'))),
+              ctr(fg(C.green, fmt(freed) + ' freed')),
+              errors > 0 ? ctr(fg(C.yellow, errors + ' files could not be deleted')) : '',
+            ].join('\n'),
+          });
+          screen.render();
+          setTimeout(() => { resultBox.detach(); showLargeFiles(); }, 2000);
+        }
+      } else {
+        // Wrong key, reset
+        typed = '';
+        renderBox();
+      }
+    }
+  });
 }
 
 function showFilePopup(file) {
