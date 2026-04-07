@@ -549,15 +549,20 @@ function showAutoClean() {
         function nextClean() {
           if (ci >= toClean.length) {
             run('sync');
-            const diskAfter = getDisk();
-            const actual = diskAfter.avail - diskBefore.avail;
-            addCleanLog('');
-            addCleanLog(fg(C.green, b('>> Done!')) + '  ~' + fg(C.green, b(fmt(freed))) + ' freed');
-            if (actual > 0) addCleanLog('  ' + dim('Disk: ' + fmt(diskBefore.avail) + ' free -> ' + fmt(diskAfter.avail) + ' free  (+' + fmt(actual) + ')'));
-            addCleanLog('');
-            addCleanLog(dim('Press esc to go back.'));
-            setFoot(b('esc') + ' back');
-            cleanLogBox.focus();
+            setTimeout(() => {
+              const diskAfter = getDisk();
+              const actual = diskAfter.avail - diskBefore.avail;
+              addCleanLog('');
+              addCleanLog(fg(C.green, b('>> Done!')) + '  ~' + fg(C.green, b(fmt(freed))) + ' freed');
+              addCleanLog('  ' + dim('Free space: ' + fmt(diskBefore.avail) + ' -> ' + fmt(diskAfter.avail)));
+              if (actual < freed * 0.5) {
+                addCleanLog('  ' + dim('Note: macOS may take a moment to release all space'));
+              }
+              addCleanLog('');
+              addCleanLog(dim('Press esc to go back.'));
+              setFoot(b('esc') + ' back');
+              cleanLogBox.focus();
+            }, 1500);
             return;
           }
 
@@ -824,15 +829,21 @@ function executeClean(toClean) {
   function next() {
     if (idx >= toClean.length) {
       run('sync');
-      const diskAfter = getDisk();
-      const actual = diskAfter.avail - diskBefore.avail;
-      addLog('');
-      addLog(fg(C.green, b('>> Done!')) + '  ~' + fg(C.green, b(fmt(freed))) + ' freed');
-      if (actual > 0) addLog('  ' + dim('Disk: ' + fmt(diskBefore.avail) + ' -> ' + fmt(diskAfter.avail) + '  (+' + fmt(actual) + ')'));
-      addLog('');
-      addLog(dim('Press esc to go back.'));
-      setFoot(b('esc') + ' back');
-      logBox.focus();
+      // Wait a moment for APFS to update free space
+      setTimeout(() => {
+        const diskAfter = getDisk();
+        const actual = diskAfter.avail - diskBefore.avail;
+        addLog('');
+        addLog(fg(C.green, b('>> Done!')) + '  ~' + fg(C.green, b(fmt(freed))) + ' freed');
+        addLog('  ' + dim('Free space: ' + fmt(diskBefore.avail) + ' -> ' + fmt(diskAfter.avail)));
+        if (actual < freed * 0.5) {
+          addLog('  ' + dim('Note: macOS may take a moment to release all space'));
+        }
+        addLog('');
+        addLog(dim('Press esc to go back.'));
+        setFoot(b('esc') + ' back');
+        logBox.focus();
+      }, 1500);
       return;
     }
 
