@@ -416,7 +416,11 @@ function showAutoClean() {
     const bar = fg(C.accent, '#'.repeat(filled)) + fg(C.empty, '-'.repeat(barW - filled));
     const found = item.size > 0 ? ('  ' + fg(C.green, '+') + ' ' + item.name + ' ' + dim(fmt(item.size))) : '';
     updateLastLog('  [' + bar + '] ' + scannedCount + '/' + total + '  ' + dim(item.name) + found);
-  }).then(items => {
+  }).then(rawItems => {
+    // Dedup by name
+    const seen = new Set();
+    const items = rawItems.filter(i => { if (seen.has(i.name)) return false; seen.add(i.name); return true; });
+
     // Replace progress line with done
     updateLastLog('  ' + fg(C.green, 'v') + ' Scanned ' + defs.length + ' locations, found ' + items.length + ' cleanable');
     addLog('');
@@ -594,7 +598,10 @@ function showCacheCleaner() {
   }).then(items => {
     stopSpin();
     spinBox.detach();
-    showChecklist('Cache & Temp', items);
+    // Dedup by name (in case scan fires twice)
+    const seen = new Set();
+    const unique = items.filter(i => { if (seen.has(i.name)) return false; seen.add(i.name); return true; });
+    showChecklist('Cache & Temp', unique);
   });
 }
 
