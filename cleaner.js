@@ -140,7 +140,7 @@ function listSetItems(list, items) {
 
 // ─── Rainbow Text ───────────────────────────────────────────────────────────
 
-const VERSION = '1.0.0';
+const VERSION = require('./package.json').version;
 const RAINBOW = [C.red, C.orange, C.yellow, C.green, C.cyan, C.accent, C.magenta];
 
 function rainbow(text) {
@@ -452,16 +452,25 @@ function showAutoClean() {
     // Pre-select safe items
     items.forEach((item, i) => { if (item.safe) selected.add(i); });
 
-    const listItems = items.map((item, i) => {
-      const checked = selected.has(i) ? '[x]' : '[ ]';
+    function buildAutoRow(item, i) {
+      const chk = selected.has(i) ? '[x]' : '[ ]';
       const tag = item.safe ? fg(C.green, 'safe') : fg(C.yellow, '!! ');
-      return '  ' + checked + ' ' + tag + ' ' + item.name.padEnd(22) + fmt(item.size).padStart(10) + '  ' + sBar(item.size / maxSize, 12) + '  ' + dim(item.hint);
-    });
+      return '  ' + chk + ' ' + tag + ' ' + item.name.padEnd(22) + fmt(item.size).padStart(10) + '  ' + sBar(item.size / maxSize, 12) + '  ' + dim(item.hint);
+    }
+
+    function rebuildAutoList() {
+      const rows = items.map((item, i) => buildAutoRow(item, i));
+      const idx = list ? list.selected : 0;
+      list.setItems(rows);
+      list.select(Math.min(idx, items.length - 1));
+      screen.render();
+    }
 
     const listTop = 6;
     const list = blessed.list({
       parent: main, top: listTop, left: 2, width: '95%', height: items.length,
-      items: listItems, tags: true, keys: false, vi: false, mouse: true,
+      items: items.map((item, i) => buildAutoRow(item, i)),
+      tags: true, keys: false, vi: false, mouse: true,
       style: { fg: C.fg, bg: C.bg, selected: { fg: '#ffffff', bg: C.sel, bold: true } },
     });
 
@@ -487,27 +496,26 @@ function showAutoClean() {
 
       if (key.name === 'space') {
         if (idx >= items.length) return;
-        if (selected.has(idx)) { selected.delete(idx); listItems[idx] = listItems[idx].replace('[x]', '[ ]'); }
-        else { selected.add(idx); listItems[idx] = listItems[idx].replace('[ ]', '[x]'); }
-        listSetItems(list, listItems);
+        if (selected.has(idx)) selected.delete(idx);
+        else selected.add(idx);
+        rebuildAutoList();
         updateTotal();
       }
       if (ch === 'a') {
         const allSel = selected.size === items.length;
         for (let i = 0; i < items.length; i++) {
-          if (allSel) { selected.delete(i); listItems[i] = listItems[i].replace('[x]', '[ ]'); }
-          else { selected.add(i); listItems[i] = listItems[i].replace('[ ]', '[x]'); }
+          if (allSel) selected.delete(i);
+          else selected.add(i);
         }
-        listSetItems(list, listItems);
+        rebuildAutoList();
         updateTotal();
       }
       if (ch === 's') {
         selected.clear();
         for (let i = 0; i < items.length; i++) {
-          listItems[i] = listItems[i].replace('[x]', '[ ]');
-          if (items[i].safe) { selected.add(i); listItems[i] = listItems[i].replace('[ ]', '[x]'); }
+          if (items[i].safe) selected.add(i);
         }
-        listSetItems(list, listItems);
+        rebuildAutoList();
         updateTotal();
       }
       if (key.name === 'return' && selected.size > 0) {
@@ -625,20 +633,31 @@ function showChecklist(title, items) {
 
   const maxSize = items[0].size;
   const selected = new Set();
-  const listItems = items.map(item => {
+
+  function buildRow(item, i) {
+    const chk = selected.has(i) ? '[x]' : '[ ]';
     const bar = sBar(item.size / maxSize, 12);
     const tag = item.safe === false ? '  ' + fg(C.yellow, '!') : '';
-    return '  [ ] ' + item.name.padEnd(24) + fmt(item.size).padStart(10) + '  ' + bar + '  ' + dim(item.hint) + tag;
-  });
+    return '  ' + chk + ' ' + item.name.padEnd(24) + fmt(item.size).padStart(10) + '  ' + bar + '  ' + dim(item.hint) + tag;
+  }
+
+  function rebuildList() {
+    const rows = items.map((item, i) => buildRow(item, i));
+    const idx = list ? list.selected : 0;
+    list.setItems(rows);
+    list.select(Math.min(idx, items.length - 1));
+    screen.render();
+  }
 
   const list = blessed.list({
-    parent: main, top: 1, left: 2, width: '95%', height: items.length + 2,
-    items: listItems, tags: true, keys: false, vi: false, mouse: true,
+    parent: main, top: 1, left: 2, width: '95%', height: items.length,
+    items: items.map((item, i) => buildRow(item, i)),
+    tags: true, keys: false, vi: false, mouse: true,
     style: { fg: C.fg, bg: C.bg, selected: { fg: '#ffffff', bg: C.sel, bold: true } },
   });
 
   const totalBox = blessed.box({
-    parent: main, top: items.length + 4, left: 2, width: '95%', height: 2,
+    parent: main, top: items.length + 2, left: 2, width: '95%', height: 2,
     tags: true, style: { fg: C.fg, bg: C.bg },
     content: '  ' + dim('space=toggle  a=all  s=safe  enter=clean'),
   });
@@ -662,25 +681,26 @@ function showChecklist(title, items) {
 
     if (key.name === 'space') {
       if (idx >= items.length) return;
-      if (selected.has(idx)) { selected.delete(idx); listItems[idx] = listItems[idx].replace('[x]', '[ ]'); }
-      else { selected.add(idx); listItems[idx] = listItems[idx].replace('[ ]', '[x]'); }
-      listSetItems(list, listItems);
+      if (selected.has(idx)) selected.delete(idx);
+      else selected.add(idx);
+      rebuildList();
       updateTotal();
     }
     if (ch === 'a') {
       const allSel = selected.size === items.length;
       for (let i = 0; i < items.length; i++) {
-        if (allSel) { selected.delete(i); listItems[i] = listItems[i].replace('[x]', '[ ]'); }
-        else { selected.add(i); listItems[i] = listItems[i].replace('[ ]', '[x]'); }
+        if (allSel) selected.delete(i);
+        else selected.add(i);
       }
-      listSetItems(list, listItems);
+      rebuildList();
       updateTotal();
     }
     if (ch === 's') {
+      selected.clear();
       for (let i = 0; i < items.length; i++) {
-        if (items[i].safe !== false) { selected.add(i); listItems[i] = listItems[i].replace('[ ]', '[x]'); }
+        if (items[i].safe !== false) selected.add(i);
       }
-      listSetItems(list, listItems);
+      rebuildList();
       updateTotal();
     }
     if (key.name === 'return' && selected.size > 0) {
@@ -847,12 +867,20 @@ function showDockerCleanup() {
   ];
 
   const selected = new Set();
-  const listItems = items.map(item => {
-    if (!item.safe) {
-      return '  [ ] ' + fg(C.red, item.name.padEnd(22)) + fg(C.red, item.hint);
-    }
-    return '  [ ] ' + item.name.padEnd(22) + dim(item.hint);
-  });
+
+  function buildDockerRow(item, i) {
+    const chk = selected.has(i) ? '[x]' : '[ ]';
+    if (!item.safe) return '  ' + chk + ' ' + fg(C.red, item.name.padEnd(22)) + fg(C.red, item.hint);
+    return '  ' + chk + ' ' + item.name.padEnd(22) + dim(item.hint);
+  }
+
+  function rebuildDockerList() {
+    const rows = items.map((item, i) => buildDockerRow(item, i));
+    const idx = list ? list.selected : 0;
+    list.setItems(rows);
+    list.select(Math.min(idx, items.length - 1));
+    screen.render();
+  }
 
   blessed.box({
     parent: main, top: listTop, left: 4, width: '90%', height: 1,
@@ -862,19 +890,22 @@ function showDockerCleanup() {
 
   const list = blessed.list({
     parent: main, top: listTop + 2, left: 2, width: '95%',
-    height: items.length,  // exact height, no extra rows
-    items: listItems, tags: true, keys: true, vi: true, mouse: true,
+    height: items.length,
+    items: items.map((item, i) => buildDockerRow(item, i)),
+    tags: true, keys: false, vi: false, mouse: true,
     style: { fg: C.fg, bg: C.bg, selected: { fg: '#ffffff', bg: C.sel, bold: true } },
   });
 
   list.on('keypress', (ch, key) => {
+    if (key.name === 'up' || ch === 'k') { list.up(1); screen.render(); }
+    if (key.name === 'down' || ch === 'j') { list.down(1); screen.render(); }
+
     if (key.name === 'space') {
       const idx = list.selected;
       if (idx >= items.length) return;
-      if (selected.has(idx)) { selected.delete(idx); listItems[idx] = listItems[idx].replace('[x]', '[ ]'); }
-      else { selected.add(idx); listItems[idx] = listItems[idx].replace('[ ]', '[x]'); }
-      listSetItems(list, listItems);
-      screen.render();
+      if (selected.has(idx)) selected.delete(idx);
+      else selected.add(idx);
+      rebuildDockerList();
     }
     if (key.name === 'return' && selected.size > 0) {
       confirmAndClean(items, selected);
@@ -1043,16 +1074,24 @@ function showLargeFileResults(files) {
     ].join('\n'),
   });
 
-  const listItems = files.map((f, i) => {
+  function buildFileRow(f, i) {
+    const chk = selected.has(i) ? '[x]' : '[ ]';
     const sp = f.path.replace(HOME, '~');
     const d = sp.length > 42 ? '...' + sp.slice(-39) : sp;
     const days = Math.floor((Date.now() - f.mtime) / 86400000);
-    return '  [ ] ' + fmt(f.size).padStart(10) + '  ' + sBar(f.size / maxSize, 10) + '  ' + dim(days + 'd') + '  ' + d;
-  });
+    return '  ' + chk + ' ' + fmt(f.size).padStart(10) + '  ' + sBar(f.size / maxSize, 10) + '  ' + dim(days + 'd') + '  ' + d;
+  }
+
+  function rebuildFileList() {
+    const rows = files.map((f, i) => buildFileRow(f, i));
+    const idx = list ? list.selected : 0;
+    list.setItems(rows);
+    list.select(Math.min(idx, files.length - 1));
+    screen.render();
+  }
 
   const totalBox = blessed.box({
-    parent: main, top: files.length + 5 > main.height - 6 ? main.height - 3 : files.length + 5,
-    left: 2, width: '95%', height: 1,
+    parent: main, top: main.height - 3, left: 2, width: '95%', height: 1,
     tags: true, style: { fg: C.fg, bg: C.bg },
     content: '  ' + dim('space=select  enter=delete selected  o=Finder  i=details'),
   });
@@ -1070,27 +1109,23 @@ function showLargeFileResults(files) {
 
   const list = blessed.list({
     parent: main, top: 3, left: 2, width: '95%', height: main.height - 7,
-    items: listItems, tags: true, mouse: true, scrollable: true,
-    // keys:false + vi:false to prevent blessed from eating space for page scroll
-    keys: false, vi: false,
+    items: files.map((f, i) => buildFileRow(f, i)),
+    tags: true, mouse: true, scrollable: true, keys: false, vi: false,
     style: { fg: C.fg, bg: C.bg, selected: { fg: '#ffffff', bg: C.sel, bold: true } },
   });
 
-  // Manual navigation since we disabled keys/vi
   list.on('keypress', (ch, key) => {
-    // Navigation
-    if (key.name === 'up' || ch === 'k') { list.up(1); screen.render(); }
-    if (key.name === 'down' || ch === 'j') { list.down(1); screen.render(); }
+    if (key.name === 'up' || ch === 'k') { list.up(1); screen.render(); return; }
+    if (key.name === 'down' || ch === 'j') { list.down(1); screen.render(); return; }
 
     const idx = list.selected;
     if (idx >= files.length) return;
     const f = files[idx];
 
     if (key.name === 'space') {
-      if (selected.has(idx)) { selected.delete(idx); listItems[idx] = listItems[idx].replace('[x]', '[ ]'); }
-      else { selected.add(idx); listItems[idx] = listItems[idx].replace('[ ]', '[x]'); }
-      list.setItems(listItems);
-      list.select(idx); // keep position after setItems
+      if (selected.has(idx)) selected.delete(idx);
+      else selected.add(idx);
+      rebuildFileList();
       updateTotal();
     }
     if (key.name === 'return' && selected.size > 0) {
@@ -1101,10 +1136,10 @@ function showLargeFileResults(files) {
     if (ch === 'a') {
       const allSel = selected.size === files.length;
       for (let i = 0; i < files.length; i++) {
-        if (allSel) { selected.delete(i); listItems[i] = listItems[i].replace('[x]', '[ ]'); }
-        else { selected.add(i); listItems[i] = listItems[i].replace('[ ]', '[x]'); }
+        if (allSel) selected.delete(i);
+        else selected.add(i);
       }
-      listSetItems(list, listItems);
+      rebuildFileList();
       updateTotal();
     }
   });
@@ -1329,12 +1364,21 @@ function showDownloads() {
             ].join('\n'),
           });
 
-          const listItems = files.map((f, i) => {
+          function buildDlRow(f, i) {
+            const chk = selected.has(i) ? '[x]' : '[ ]';
             const days = Math.floor((Date.now() - f.atime) / 86400000);
             const tag = f.isInstaller ? fg(C.magenta, ' [installer]') : '';
             const n = f.name.length > 32 ? f.name.slice(0, 29) + '...' : f.name;
-            return '  [ ] ' + fmt(f.size).padStart(10) + '  ' + sBar(f.size / maxSize, 10) + '  ' + dim(days + 'd') + '  ' + n + tag;
-          });
+            return '  ' + chk + ' ' + fmt(f.size).padStart(10) + '  ' + sBar(f.size / maxSize, 10) + '  ' + dim(days + 'd') + '  ' + n + tag;
+          }
+
+          function rebuildDlList() {
+            const rows = files.map((f, i) => buildDlRow(f, i));
+            const idx = list ? list.selected : 0;
+            list.setItems(rows);
+            list.select(Math.min(idx, files.length - 1));
+            screen.render();
+          }
 
           const totalBox = blessed.box({
             parent: main, top: main.height - 3, left: 2, width: '95%', height: 1,
@@ -1355,7 +1399,8 @@ function showDownloads() {
 
           const list = blessed.list({
             parent: main, top: 4, left: 2, width: '95%', height: main.height - 8,
-            items: listItems, tags: true, keys: false, vi: false, mouse: true, scrollable: true,
+            items: files.map((f, i) => buildDlRow(f, i)),
+            tags: true, keys: false, vi: false, mouse: true, scrollable: true,
             style: { fg: C.fg, bg: C.bg, selected: { fg: '#ffffff', bg: C.sel, bold: true } },
           });
 
@@ -1368,10 +1413,9 @@ function showDownloads() {
             const f = files[idx];
 
             if (key.name === 'space') {
-              if (selected.has(idx)) { selected.delete(idx); listItems[idx] = listItems[idx].replace('[x]', '[ ]'); }
-              else { selected.add(idx); listItems[idx] = listItems[idx].replace('[ ]', '[x]'); }
-              list.setItems(listItems);
-              list.select(idx);
+              if (selected.has(idx)) selected.delete(idx);
+              else selected.add(idx);
+              rebuildDlList();
               updateTotal();
             }
             if (key.name === 'return' && selected.size > 0) {
@@ -1382,11 +1426,10 @@ function showDownloads() {
             if (ch === 'a') {
               const allSel = selected.size === files.length;
               for (let i = 0; i < files.length; i++) {
-                if (allSel) { selected.delete(i); listItems[i] = listItems[i].replace('[x]', '[ ]'); }
-                else { selected.add(i); listItems[i] = listItems[i].replace('[ ]', '[x]'); }
+                if (allSel) selected.delete(i);
+                else selected.add(i);
               }
-              list.setItems(listItems);
-              list.select(idx);
+              rebuildDlList();
               updateTotal();
             }
           });
