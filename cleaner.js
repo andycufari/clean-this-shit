@@ -522,6 +522,7 @@ function showAutoClean() {
         const toClean = Array.from(selected).map(i => items[i]);
 
         // Remove checklist, switch to cleaning log
+        popupOpen = false;
         summaryBox.detach(); list.detach(); totalBox.detach();
 
         const cleanLogBox = blessed.box({
@@ -797,6 +798,7 @@ function confirmAndClean(items, selectedSet) {
 }
 
 function executeClean(toClean) {
+  popupOpen = false;
   clearMain();
   setHeader('Cleaning...');
 
