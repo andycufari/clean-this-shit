@@ -202,7 +202,7 @@ function getCleanableDefs() {
     { name: 'Browser Caches',      tag: 'browser',  hint: 'Chrome/Safari/Arc/Firefox',       path: h + '/Library/Caches/Google',  cmd: rmdirs(h + '/Library/Caches/Google/Chrome/Default/Cache', h + '/Library/Caches/com.apple.Safari', h + '/Library/Caches/company.thebrowser.Browser'), safe: true },
     { name: 'Xcode DerivedData',   tag: 'xcode',    hint: 'build artifacts, safe to nuke',   path: h + '/Library/Developer/Xcode/DerivedData', cmd: rmrf(h + '/Library/Developer/Xcode/DerivedData'), safe: true },
     { name: 'Xcode Device Support',tag: 'xcode',    hint: 'old iOS/watchOS symbols',         path: h + '/Library/Developer/Xcode/iOS DeviceSupport', cmd: rmdirs(h + '/Library/Developer/Xcode/iOS DeviceSupport', h + '/Library/Developer/Xcode/watchOS DeviceSupport'), safe: true },
-    { name: 'CoreSimulator',       tag: 'xcode',    hint: 'unused simulator runtimes',       path: h + '/Library/Developer/CoreSimulator', cmd: 'xcrun simctl delete unavailable 2>/dev/null; exit 0', safe: true },
+    { name: 'CoreSimulator',       tag: 'xcode',    hint: 'all simulator devices & data',    path: h + '/Library/Developer/CoreSimulator', cmd: 'xcrun simctl shutdown all 2>/dev/null; xcrun simctl delete all 2>/dev/null; ' + rmrf(h + '/Library/Developer/CoreSimulator/Caches'), safe: false },
     { name: 'Homebrew Cache',      tag: 'dev',      hint: 'old downloaded bottles',          path: h + '/Library/Caches/Homebrew', cmd: 'brew cleanup --prune=all 2>/dev/null; exit 0', safe: true },
     { name: 'npm Cache',           tag: 'dev',      hint: 'registry tarballs',               path: h + '/.npm',                   cmd: 'npm cache clean --force 2>/dev/null; exit 0', safe: true },
     { name: 'Yarn Cache',          tag: 'dev',      hint: 'offline mirror, will re-download', path: h + '/Library/Caches/Yarn',   cmd: 'yarn cache clean 2>/dev/null; exit 0',        safe: true },
@@ -733,7 +733,7 @@ function confirmAndClean(items, selectedSet) {
   });
 
   function renderConfirm() {
-    const target = 'CLEAN';
+    const target = 'DELETE';
     let typedDisplay = '';
     for (let i = 0; i < target.length; i++) {
       if (i < typed.length) typedDisplay += fg(C.green, b(typed[i]));
@@ -751,7 +751,7 @@ function confirmAndClean(items, selectedSet) {
       '',
       ctr(b('~' + fmt(totalSize) + ' will be freed')),
       '',
-      ctr('Type ' + b(fg(C.green, 'CLEAN')) + ' to confirm:'),
+      ctr('Type ' + b(fg(C.red, 'DELETE')) + ' to confirm:'),
       '',
       ctr('>>  [ ' + typedDisplay + ' ]  <<'),
       '',
@@ -777,7 +777,7 @@ function confirmAndClean(items, selectedSet) {
       return;
     }
 
-    const target = 'CLEAN';
+    const target = 'DELETE';
     if (ch && ch.length === 1 && typed.length < target.length) {
       const upper = ch.toUpperCase();
       if (upper === target[typed.length]) {
