@@ -1087,7 +1087,7 @@ function showLargeFileResults(files) {
       updateTotal();
     }
     if (key.name === 'return' && selected.size > 0) {
-      confirmDeleteFiles(files, selected);
+      confirmDeleteFiles(files, selected, showLargeFiles);
     }
     if (ch === 'i' && f) showFilePopup(f);
     if (ch === 'o' && f) run('open -R "' + f.path + '"');
@@ -1106,7 +1106,7 @@ function showLargeFileResults(files) {
   list.focus(); screen.render();
 }
 
-function confirmDeleteFiles(files, selectedSet) {
+function confirmDeleteFiles(files, selectedSet, onDone) {
   const toDelete = Array.from(selectedSet).map(i => files[i]);
   const totalSize = toDelete.reduce((s, f) => s + f.size, 0);
 
@@ -1213,7 +1213,7 @@ function confirmDeleteFiles(files, selectedSet) {
             ].join('\n'),
           });
           screen.render();
-          setTimeout(() => { resultBox.detach(); showLargeFiles(); }, 2000);
+          setTimeout(() => { resultBox.detach(); if (onDone) onDone(); else showMenu(); }, 2000);
         }
       } else {
         // Wrong key, reset
@@ -1368,7 +1368,7 @@ function showDownloads() {
               updateTotal();
             }
             if (key.name === 'return' && selected.size > 0) {
-              confirmDeleteFiles(files, selected);
+              confirmDeleteFiles(files, selected, showDownloads);
             }
             if (ch === 'i' && f) showFilePopup(f);
             if (ch === 'o' && f) run('open -R "' + f.path + '"');
