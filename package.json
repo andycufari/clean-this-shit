@@ -4,7 +4,8 @@
   "description": "Ultimate Mac disk space cleaner with TUI",
   "main": "cleaner.js",
   "bin": {
-    "clean-this-shit": "./cleaner.js"
+    "clean-this-shit": "./cleaner.js",
+    "cts": "./cleaner.js"
   },
   "scripts": {
     "start": "node cleaner.js",

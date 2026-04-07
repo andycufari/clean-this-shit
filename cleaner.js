@@ -183,6 +183,7 @@ const main = blessed.box({
 });
 
 let curView = null;
+let popupOpen = false;
 function clearMain() {
   while (main.children.length) main.children[0].detach();
   curView = null;
@@ -706,9 +707,10 @@ function confirmAndClean(items, selectedSet) {
     ].join('\n'),
   });
 
+  popupOpen = true;
   box.focus(); screen.render();
-  box.onceKey(['y', 'Y'], () => { box.detach(); executeClean(toClean); });
-  box.onceKey(['n', 'N', 'escape'], () => { box.detach(); screen.render(); });
+  box.onceKey(['y', 'Y'], () => { popupOpen = false; box.detach(); executeClean(toClean); });
+  box.onceKey(['n', 'N', 'escape'], () => { popupOpen = false; box.detach(); screen.render(); });
 }
 
 function executeClean(toClean) {
@@ -1134,7 +1136,7 @@ function confirmDeleteFiles(files, selectedSet) {
 
   input.on('submit', (value) => {
     if (value.trim() === 'DELETE') {
-      box.detach();
+      popupOpen = false; box.detach();
       // Execute deletion
       let freed = 0;
       let deleted = 0;
@@ -1167,10 +1169,11 @@ function confirmDeleteFiles(files, selectedSet) {
   });
 
   input.on('cancel', () => {
-    box.detach();
+    popupOpen = false; box.detach();
     screen.render();
   });
 
+  popupOpen = true;
   box.focus();
   input.focus();
   screen.render();
@@ -1200,8 +1203,9 @@ function showFilePopup(file) {
     ].join('\n'),
   });
 
-  function closePopup() { box.detach(); screen.render(); }
+  function closePopup() { popupOpen = false; box.detach(); screen.render(); }
 
+  popupOpen = true;
   box.focus(); screen.render();
   box.key(['escape', 'q'], closePopup);
   box.on('click', () => {}); // absorb clicks on the box itself
@@ -1438,8 +1442,9 @@ function showCredits() {
     ].join('\n'),
   });
 
-  function close() { box.detach(); screen.render(); }
+  function close() { popupOpen = false; box.detach(); screen.render(); }
 
+  popupOpen = true;
   box.focus(); screen.render();
   box.key(['escape', 'q', 'return'], close);
   screen.once('click', close);
@@ -1448,6 +1453,7 @@ function showCredits() {
 // ─── Global Keys ────────────────────────────────────────────────────────────
 
 screen.key(['escape'], () => {
+  if (popupOpen) return; // let the popup handle its own esc
   if (curView && curView !== 'menu') showMenu();
 });
 screen.key(['q', 'C-c'], () => process.exit(0));
