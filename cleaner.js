@@ -127,6 +127,17 @@ function spinner(box, prefix) {
   return () => clearInterval(id);
 }
 
+// ─── List Helper: setItems without losing scroll position ───────────────────
+
+function listSetItems(list, items) {
+  const idx = list.selected;
+  const scrollTop = list.childBase || 0;
+  list.setItems(items);
+  list.select(idx);
+  list.childBase = scrollTop;
+  list.scrollTo(scrollTop + idx);
+}
+
 // ─── Rainbow Text ───────────────────────────────────────────────────────────
 
 const VERSION = '1.0.0';
@@ -473,8 +484,7 @@ function showAutoClean() {
         if (idx >= items.length) return;
         if (selected.has(idx)) { selected.delete(idx); listItems[idx] = listItems[idx].replace('[x]', '[ ]'); }
         else { selected.add(idx); listItems[idx] = listItems[idx].replace('[ ]', '[x]'); }
-        list.setItems(listItems);
-        list.select(idx);
+        listSetItems(list, listItems);
         updateTotal();
       }
       if (ch === 'a') {
@@ -483,8 +493,7 @@ function showAutoClean() {
           if (allSel) { selected.delete(i); listItems[i] = listItems[i].replace('[x]', '[ ]'); }
           else { selected.add(i); listItems[i] = listItems[i].replace('[ ]', '[x]'); }
         }
-        list.setItems(listItems);
-        list.select(idx);
+        listSetItems(list, listItems);
         updateTotal();
       }
       if (ch === 's') {
@@ -493,8 +502,7 @@ function showAutoClean() {
           listItems[i] = listItems[i].replace('[x]', '[ ]');
           if (items[i].safe) { selected.add(i); listItems[i] = listItems[i].replace('[ ]', '[x]'); }
         }
-        list.setItems(listItems);
-        list.select(idx);
+        listSetItems(list, listItems);
         updateTotal();
       }
       if (key.name === 'return' && selected.size > 0) {
@@ -647,8 +655,7 @@ function showChecklist(title, items) {
       if (idx >= items.length) return;
       if (selected.has(idx)) { selected.delete(idx); listItems[idx] = listItems[idx].replace('[x]', '[ ]'); }
       else { selected.add(idx); listItems[idx] = listItems[idx].replace('[ ]', '[x]'); }
-      list.setItems(listItems);
-      list.select(idx);
+      listSetItems(list, listItems);
       updateTotal();
     }
     if (ch === 'a') {
@@ -657,15 +664,14 @@ function showChecklist(title, items) {
         if (allSel) { selected.delete(i); listItems[i] = listItems[i].replace('[x]', '[ ]'); }
         else { selected.add(i); listItems[i] = listItems[i].replace('[ ]', '[x]'); }
       }
-      list.setItems(listItems);
-      list.select(idx);
+      listSetItems(list, listItems);
       updateTotal();
     }
     if (ch === 's') {
       for (let i = 0; i < items.length; i++) {
         if (items[i].safe !== false) { selected.add(i); listItems[i] = listItems[i].replace('[ ]', '[x]'); }
       }
-      list.setItems(listItems);
+      listSetItems(list, listItems);
       updateTotal();
     }
     if (key.name === 'return' && selected.size > 0) {
@@ -856,7 +862,7 @@ function showDockerCleanup() {
       if (idx >= items.length) return;
       if (selected.has(idx)) { selected.delete(idx); listItems[idx] = listItems[idx].replace('[x]', '[ ]'); }
       else { selected.add(idx); listItems[idx] = listItems[idx].replace('[ ]', '[x]'); }
-      list.setItems(listItems);
+      listSetItems(list, listItems);
       screen.render();
     }
     if (key.name === 'return' && selected.size > 0) {
@@ -1087,8 +1093,7 @@ function showLargeFileResults(files) {
         if (allSel) { selected.delete(i); listItems[i] = listItems[i].replace('[x]', '[ ]'); }
         else { selected.add(i); listItems[i] = listItems[i].replace('[ ]', '[x]'); }
       }
-      list.setItems(listItems);
-      list.select(idx);
+      listSetItems(list, listItems);
       updateTotal();
     }
   });
@@ -1258,6 +1263,7 @@ function showDownloads() {
           const maxSize = files[0].size;
           const total = files.reduce((s, f) => s + f.size, 0);
           const instCnt = files.filter(f => f.isInstaller).length;
+          const selected = new Set();
 
           blessed.box({
             parent: main, top: 0, left: 2, width: '95%', height: 3, tags: true, style: { fg: C.fg, bg: C.bg },
@@ -1271,22 +1277,65 @@ function showDownloads() {
             const days = Math.floor((Date.now() - f.atime) / 86400000);
             const tag = f.isInstaller ? fg(C.magenta, ' [installer]') : '';
             const n = f.name.length > 32 ? f.name.slice(0, 29) + '...' : f.name;
-            return '  ' + (i + 1).toString().padStart(3) + '. ' + fmt(f.size).padStart(10) + '  ' + sBar(f.size / maxSize, 10) + '  ' + dim(days + 'd') + '  ' + n + tag;
+            return '  [ ] ' + fmt(f.size).padStart(10) + '  ' + sBar(f.size / maxSize, 10) + '  ' + dim(days + 'd') + '  ' + n + tag;
           });
 
+          const totalBox = blessed.box({
+            parent: main, top: main.height - 3, left: 2, width: '95%', height: 1,
+            tags: true, style: { fg: C.fg, bg: C.bg },
+            content: '  ' + dim('space=select  a=all  enter=delete  i=info  o=Finder'),
+          });
+
+          function updateTotal() {
+            let sz = 0;
+            selected.forEach(i => { if (files[i]) sz += files[i].size; });
+            if (selected.size > 0) {
+              totalBox.setContent('  ' + fg(C.green, selected.size + ' selected -> ' + b(fmt(sz))) + '  ' + dim('enter=delete  space=toggle'));
+            } else {
+              totalBox.setContent('  ' + dim('space=select  a=all  enter=delete  i=info  o=Finder'));
+            }
+            screen.render();
+          }
+
           const list = blessed.list({
-            parent: main, top: 4, left: 2, width: '95%', height: main.height - 7,
-            items: listItems, tags: true, keys: true, vi: true, mouse: true, scrollable: true,
+            parent: main, top: 4, left: 2, width: '95%', height: main.height - 8,
+            items: listItems, tags: true, keys: false, vi: false, mouse: true, scrollable: true,
             style: { fg: C.fg, bg: C.bg, selected: { fg: '#ffffff', bg: C.sel, bold: true } },
           });
 
           list.on('keypress', (ch, key) => {
-            const f = files[list.selected];
-            if (key.name === 'return') showFilePopup(f);
-            if (ch === 'o') run('open -R "' + f.path + '"');
+            if (key.name === 'up' || ch === 'k') { list.up(1); screen.render(); return; }
+            if (key.name === 'down' || ch === 'j') { list.down(1); screen.render(); return; }
+
+            const idx = list.selected;
+            if (idx >= files.length) return;
+            const f = files[idx];
+
+            if (key.name === 'space') {
+              if (selected.has(idx)) { selected.delete(idx); listItems[idx] = listItems[idx].replace('[x]', '[ ]'); }
+              else { selected.add(idx); listItems[idx] = listItems[idx].replace('[ ]', '[x]'); }
+              list.setItems(listItems);
+              list.select(idx);
+              updateTotal();
+            }
+            if (key.name === 'return' && selected.size > 0) {
+              confirmDeleteFiles(files, selected);
+            }
+            if (ch === 'i' && f) showFilePopup(f);
+            if (ch === 'o' && f) run('open -R "' + f.path + '"');
+            if (ch === 'a') {
+              const allSel = selected.size === files.length;
+              for (let i = 0; i < files.length; i++) {
+                if (allSel) { selected.delete(i); listItems[i] = listItems[i].replace('[x]', '[ ]'); }
+                else { selected.add(i); listItems[i] = listItems[i].replace('[ ]', '[x]'); }
+              }
+              list.setItems(listItems);
+              list.select(idx);
+              updateTotal();
+            }
           });
 
-          setFoot(b('enter') + ' details  ' + b('o') + ' Finder  ' + b('esc') + ' back');
+          setFoot(b('space') + ' select  ' + b('a') + ' all  ' + b('enter') + ' delete  ' + b('i') + ' info  ' + b('o') + ' Finder  ' + b('esc') + ' back');
           list.focus(); screen.render();
         }
       );
